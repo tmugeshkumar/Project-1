@@ -1,0 +1,118 @@
+import { NextRequest, NextResponse } from "next/server";
+import { registerSchema } from "@/lib/validations/auth";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { hashPassword } from "@/lib/auth/password";
+import { getPrismaClient } from "@/lib/db";
+
+export const dynamic = "force-dynamic";
+
+export async function POST(req: NextRequest): Promise<NextResponse> {
+  // 1. Rate limit: 3 req/min per IP
+  const ip = req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip") ?? "unknown";
+  const rl = checkRateLimit(`register:${ip}`, { intervalMs: 60_000, maxRequests: 3 });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { success: false, message: "Too many requests. Please try again later." },
+      { status: 429 }
+    );
+  }
+
+  // 2. Parse and validate body
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ success: false, message: "Invalid request body." }, { status: 400 });
+  }
+
+  const parsed = registerSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { success: false, message: "Validation failed.", errors: parsed.error.flatten().fieldErrors },
+      { status: 422 }
+    );
+  }
+
+  const { fullName, username, email, password, honeypot, submissionTimestamp } = parsed.data;
+
+  // 3. Honeypot check — silently succeed
+  if (honeypot && honeypot.length > 0) {
+    return NextResponse.json({ success: true, message: "Account created. Please check your email to verify your account." }, { status: 200 });
+  }
+
+  // 4. Submission timing check — silently succeed if < 2000ms
+  if (submissionTimestamp !== undefined) {
+    const elapsed = Date.now() - submissionTimestamp;
+    if (elapsed < 2000) {
+      return NextResponse.json({ success: true, message: "Account created. Please check your email to verify your account." }, { status: 200 });
+    }
+  }
+
+  // 5. Get DB client
+  const prisma = getPrismaClient();
+  if (!prisma) {
+    return NextResponse.json(
+      { success: false, message: "Database not configured. Set DATABASE_URL." },
+      { status: 503 }
+    );
+  }
+
+  try {
+    // 6. Check for duplicate email
+    const existingEmail = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+    // 7. Check for duplicate username
+    const existingUsername = await prisma.user.findUnique({ where: { username: username.toLowerCase() } });
+
+    // Return generic error for BOTH duplicates — never reveal which field is taken
+    if (existingEmail || existingUsername) {
+      return NextResponse.json(
+        { success: false, message: "Registration failed. Please check your details." },
+        { status: 409 }
+      );
+    }
+
+    // 8. Hash password
+    const passwordHash = await hashPassword(password);
+
+    // 9. Create user
+    const user = await prisma.user.create({
+      data: {
+        fullName,
+        username: username.toLowerCase(),
+        email: email.toLowerCase(),
+        passwordHash,
+        role: "USER",
+        accountStatus: "ACTIVE",
+      },
+    });
+
+    // 10. Generate verification token
+    const token = crypto.randomUUID();
+
+    // 11. Create VerificationToken record
+    await prisma.verificationToken.create({
+      data: {
+        token,
+        userId: user.id,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        used: false,
+      },
+    });
+
+    // 12. Log in dev mode
+    if (process.env.NODE_ENV !== "production") {
+      console.log(`[Register] New user: ${user.id} | Email verification token: ${token}`);
+    }
+
+    // 13. Return 201
+    return NextResponse.json(
+      { success: true, message: "Account created. Please check your email to verify your account." },
+      { status: 201 }
+    );
+  } catch {
+    return NextResponse.json(
+      { success: false, message: "Registration failed. Please try again later." },
+      { status: 500 }
+    );
+  }
+}

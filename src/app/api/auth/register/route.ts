@@ -3,6 +3,7 @@ import { registerSchema } from "@/lib/validations/auth";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { hashPassword } from "@/lib/auth/password";
 import { getPrismaClient } from "@/lib/db";
+import { findLocalUser, saveLocalUser } from "@/lib/auth/local-store";
 
 export const dynamic = "force-dynamic";
 
@@ -37,27 +38,48 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // 3. Honeypot check — silently succeed
   if (honeypot && honeypot.length > 0) {
-    return NextResponse.json({ success: true, message: "Account created. Please check your email to verify your account." }, { status: 200 });
+    return NextResponse.json({ success: true, message: "Account created. You can now log in." }, { status: 200 });
   }
 
   // 4. Submission timing check — silently succeed if < 2000ms
   if (submissionTimestamp !== undefined) {
     const elapsed = Date.now() - submissionTimestamp;
     if (elapsed < 2000) {
-      return NextResponse.json({ success: true, message: "Account created. Please check your email to verify your account." }, { status: 200 });
+      return NextResponse.json({ success: true, message: "Account created. You can now log in." }, { status: 200 });
     }
   }
 
-  // 5. Get DB client
-  const prisma = getPrismaClient();
-  if (!prisma) {
-    return NextResponse.json(
-      { success: false, message: "Database not configured. Set DATABASE_URL." },
-      { status: 503 }
-    );
-  }
-
   try {
+    const prisma = getPrismaClient();
+
+    if (!prisma) {
+      // Local fallback mode
+      const existing = findLocalUser(email) || findLocalUser(username);
+      if (existing) {
+        return NextResponse.json(
+          { success: false, message: "Registration failed. Please check your details." },
+          { status: 409 }
+        );
+      }
+
+      const passwordHash = await hashPassword(password);
+      saveLocalUser({
+        fullName,
+        username: username.toLowerCase(),
+        email: email.toLowerCase(),
+        passwordHash,
+        role: "USER",
+        emailVerified: true,
+        emailVerifiedAt: new Date().toISOString(),
+        accountStatus: "ACTIVE",
+      });
+
+      return NextResponse.json(
+        { success: true, message: "Account created successfully. You can now log in!" },
+        { status: 201 }
+      );
+    }
+
     // 6. Check for duplicate email
     const existingEmail = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
     // 7. Check for duplicate username
@@ -99,12 +121,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       },
     });
 
-    // 12. Log in dev mode
-    if (process.env.NODE_ENV !== "production") {
-      console.log(`[Register] New user: ${user.id} | Email verification token: ${token}`);
-    }
-
-    // 13. Return 201
     return NextResponse.json(
       { success: true, message: "Account created. Please check your email to verify your account." },
       { status: 201 }

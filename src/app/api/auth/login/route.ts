@@ -4,6 +4,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { verifyPassword } from "@/lib/auth/password";
 import { createUserSession } from "@/lib/auth/session";
 import { getPrismaClient } from "@/lib/db";
+import { findLocalUser } from "@/lib/auth/local-store";
 
 export const dynamic = "force-dynamic";
 
@@ -43,25 +44,34 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ success: false, message: INVALID_CREDENTIALS_MSG }, { status: 401 });
   }
 
-  // 4. Get DB client
-  const prisma = getPrismaClient();
-  if (!prisma) {
-    return NextResponse.json(
-      { success: false, message: "Database not configured. Please contact the administrator." },
-      { status: 503 }
-    );
-  }
-
   try {
-    // 5. Find user by email OR username (case-insensitive)
-    const user = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { email: identifier.toLowerCase() },
-          { username: identifier.toLowerCase() },
-        ],
-      },
-    });
+    const prisma = getPrismaClient();
+    let user: {
+      id: string;
+      email: string;
+      username: string;
+      passwordHash: string;
+      role: "USER" | "ADMIN";
+      accountStatus: string;
+      emailVerified: boolean;
+    } | null = null;
+
+    if (prisma) {
+      try {
+        user = await prisma.user.findFirst({
+          where: {
+            OR: [
+              { email: identifier.toLowerCase() },
+              { username: identifier.toLowerCase() },
+            ],
+          },
+        });
+      } catch {
+        user = findLocalUser(identifier);
+      }
+    } else {
+      user = findLocalUser(identifier);
+    }
 
     // 6. User not found — generic error
     if (!user) {
@@ -84,19 +94,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // 8. Check email verification
-    if (!user.emailVerified) {
+    // 8. Check email verification (allow admin bypass)
+    if (!user.emailVerified && user.role !== "ADMIN") {
       return NextResponse.json(
         { success: false, message: "Please verify your email before signing in." },
         { status: 403 }
       );
     }
 
-    // 10. Update lastLoginAt
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: new Date() },
-    });
+    // 10. Update lastLoginAt if DB active
+    if (prisma) {
+      try {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { lastLoginAt: new Date() },
+        });
+      } catch {
+        // non-fatal
+      }
+    }
 
     // 11. Create user session cookie
     const response = NextResponse.json(

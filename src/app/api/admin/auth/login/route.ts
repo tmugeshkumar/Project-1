@@ -4,6 +4,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { verifyPassword } from "@/lib/auth/password";
 import { createAdminSession } from "@/lib/auth/session";
 import { getPrismaClient } from "@/lib/db";
+import { findLocalUser } from "@/lib/auth/local-store";
 
 export const dynamic = "force-dynamic";
 
@@ -36,24 +37,33 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const { identifier, password } = parsed.data;
 
-  const prisma = getPrismaClient();
-  if (!prisma) {
-    return NextResponse.json(
-      { success: false, message: "Database not configured. Please contact the administrator." },
-      { status: 503 }
-    );
-  }
-
   try {
-    // 3. Find user by email or username
-    const admin = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { email: identifier.toLowerCase() },
-          { username: identifier.toLowerCase() },
-        ],
-      },
-    });
+    const prisma = getPrismaClient();
+    let admin: {
+      id: string;
+      email: string;
+      username: string;
+      passwordHash: string;
+      role: string;
+      accountStatus: string;
+    } | null = null;
+
+    if (prisma) {
+      try {
+        admin = await prisma.user.findFirst({
+          where: {
+            OR: [
+              { email: identifier.toLowerCase() },
+              { username: identifier.toLowerCase() },
+            ],
+          },
+        });
+      } catch {
+        admin = findLocalUser(identifier);
+      }
+    } else {
+      admin = findLocalUser(identifier);
+    }
 
     // 4. Not found, wrong password, or not ADMIN — same generic error
     if (!admin || admin.role !== "ADMIN") {
@@ -85,13 +95,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { status: 200 }
     );
 
-    // 8. Insert AdminAuditLog
-    await prisma.adminAuditLog.create({
-      data: {
-        action: "ADMIN_LOGIN",
-        adminId: admin.id,
-      },
-    });
+    // 8. Insert AdminAuditLog if DB connected
+    if (prisma) {
+      try {
+        await prisma.adminAuditLog.create({
+          data: {
+            action: "ADMIN_LOGIN",
+            adminId: admin.id,
+          },
+        });
+      } catch {
+        // non-fatal
+      }
+    }
 
     return createAdminSession(
       { adminId: admin.id, email: admin.email, username: admin.username, role: "ADMIN" },

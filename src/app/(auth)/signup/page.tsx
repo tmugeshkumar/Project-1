@@ -134,7 +134,12 @@ export default function SignupPage() {
         return;
       }
 
-      window.location.href = "/login?registered=1";
+      const searchParams = new URLSearchParams(window.location.search);
+      const redirectParam = searchParams.get("redirect");
+      const target = redirectParam
+        ? `/login?registered=1&redirect=${encodeURIComponent(redirectParam)}`
+        : "/login?registered=1";
+      window.location.href = target;
     } catch {
       setError("A network error occurred. Please try again.");
     } finally {
@@ -372,7 +377,7 @@ export default function SignupPage() {
       <p className="mt-6 text-center text-sm text-gray-500">
         Already have an account?{" "}
         <Link
-          href="/login"
+          href={typeof window !== "undefined" && new URLSearchParams(window.location.search).get("redirect") ? `/login?redirect=${encodeURIComponent(new URLSearchParams(window.location.search).get("redirect")!)}` : "/login"}
           className="text-brand-400 hover:text-brand-300 font-medium transition-colors"
         >
           Sign in

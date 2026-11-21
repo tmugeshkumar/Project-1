@@ -8,7 +8,32 @@ import { verifyUserToken, verifyAdminToken } from "@/lib/auth/jwt";
 import { USER_COOKIE, ADMIN_COOKIE } from "@/lib/auth/session";
 
 export async function middleware(req: NextRequest): Promise<NextResponse> {
-  const { pathname } = req.nextUrl;
+  const { pathname, searchParams } = req.nextUrl;
+
+  // ── Protected Actions: Contact Us / Discuss Project ───────────────────────
+  if (pathname.startsWith("/contact")) {
+    const userToken = req.cookies.get(USER_COOKIE)?.value;
+    const adminToken = req.cookies.get(ADMIN_COOKIE)?.value;
+    let isAuthenticated = false;
+
+    if (userToken) {
+      const userSession = await verifyUserToken(userToken);
+      if (userSession) isAuthenticated = true;
+    }
+
+    if (!isAuthenticated && adminToken) {
+      const adminSession = await verifyAdminToken(adminToken);
+      if (adminSession?.role === "ADMIN") isAuthenticated = true;
+    }
+
+    if (!isAuthenticated) {
+      const loginUrl = new URL("/login", req.url);
+      loginUrl.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+
+    return NextResponse.next();
+  }
 
   // ── Admin route protection ──────────────────────────────────────────────────
   if (pathname.startsWith("/admin")) {
@@ -42,10 +67,18 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
   const authOnlyPages = ["/login", "/signup", "/forgot-password"];
   if (authOnlyPages.includes(pathname)) {
     const userToken = req.cookies.get(USER_COOKIE)?.value;
+    const adminToken = req.cookies.get(ADMIN_COOKIE)?.value;
+    const redirectTarget = searchParams.get("redirect") || "/";
+
     if (userToken) {
       const session = await verifyUserToken(userToken);
       if (session) {
-        return NextResponse.redirect(new URL("/", req.url));
+        return NextResponse.redirect(new URL(redirectTarget, req.url));
+      }
+    } else if (adminToken) {
+      const adminSession = await verifyAdminToken(adminToken);
+      if (adminSession?.role === "ADMIN") {
+        return NextResponse.redirect(new URL(redirectTarget, req.url));
       }
     }
   }
@@ -55,6 +88,7 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
 
 export const config = {
   matcher: [
+    "/contact/:path*",
     "/admin/:path*",
     "/login",
     "/signup",

@@ -2,16 +2,24 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { siteConfig } from "@/config/site";
 import { Button } from "@/components/ui/Button";
-import { Menu, X, ArrowUpRight, Code2 } from "lucide-react";
+import { Menu, X, ArrowUpRight, Code2, LogIn, User as UserIcon, ShieldCheck, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+interface AuthState {
+  username: string;
+  fullName: string;
+  role: string;
+}
 
 export const Navbar: React.FC = () => {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [user, setUser] = useState<AuthState | null>(null);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -20,6 +28,46 @@ export const Navbar: React.FC = () => {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // Check auth session
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const res = await fetch("/api/auth/me");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.data) {
+            setUser({
+              username: data.data.username,
+              fullName: data.data.fullName,
+              role: data.data.role,
+            });
+            return;
+          }
+        }
+        setUser(null);
+      } catch {
+        setUser(null);
+      }
+    };
+    checkAuth();
+  }, [pathname]);
+
+  const handleLogout = async () => {
+    try {
+      if (user?.role === "ADMIN") {
+        await fetch("/api/admin/auth/logout", { method: "POST" });
+      } else {
+        await fetch("/api/auth/logout", { method: "POST" });
+      }
+    } catch {
+      // ignore
+    } finally {
+      setUser(null);
+      router.push("/");
+      router.refresh();
+    }
+  };
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -80,8 +128,42 @@ export const Navbar: React.FC = () => {
             })}
           </nav>
 
-          {/* Desktop Action Buttons */}
+          {/* Desktop Action Buttons: Login + Discuss Project */}
           <div className="hidden md:flex items-center gap-3">
+            {user ? (
+              <div className="flex items-center gap-2.5">
+                {user.role === "ADMIN" && (
+                  <Link
+                    href="/admin/dashboard"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-brand-700 bg-brand-50 border border-brand-200 hover:bg-brand-100 transition-colors"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 text-brand-600" />
+                    <span>Admin Dashboard</span>
+                  </Link>
+                )}
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-medium border border-slate-200">
+                  <UserIcon className="w-3.5 h-3.5 text-slate-500" />
+                  <span>@{user.username}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Sign Out"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <Link
+                href="/login"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:text-brand-600 hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all"
+              >
+                <LogIn className="w-4 h-4 text-slate-500" />
+                <span>Sign In</span>
+              </Link>
+            )}
+
             <Button
               href="/contact"
               variant="primary"
@@ -135,7 +217,46 @@ export const Navbar: React.FC = () => {
             })}
           </nav>
 
-          <div className="pt-2 border-t border-slate-100">
+          <div className="pt-2 border-t border-slate-100 space-y-2">
+            {user ? (
+              <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-200">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center font-bold text-xs">
+                    {user.username.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-slate-900">@{user.username}</div>
+                    <div className="text-[10px] text-slate-500 uppercase">{user.role}</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {user.role === "ADMIN" && (
+                    <Link
+                      href="/admin/dashboard"
+                      className="px-2 py-1 text-xs font-semibold text-brand-600 bg-white border border-slate-200 rounded"
+                    >
+                      Admin
+                    </Link>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="p-1.5 text-slate-400 hover:text-red-600 transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <Link
+                href="/login"
+                className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-lg text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors"
+              >
+                <LogIn className="w-4 h-4 text-slate-500" />
+                <span>Sign In / Login</span>
+              </Link>
+            )}
+
             <Button
               href="/contact"
               variant="primary"

@@ -99,6 +99,25 @@ export default function SignupPage() {
       setError("You must agree to the Terms and Conditions.");
       return;
     }
+    if (username.trim().length < 3) {
+      setError("Username must be at least 3 characters.");
+      return;
+    }
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+    if (
+      !/[A-Z]/.test(password) ||
+      !/[a-z]/.test(password) ||
+      !/[0-9]/.test(password) ||
+      !/[^A-Za-z0-9]/.test(password)
+    ) {
+      setError(
+        "Password must contain at least one uppercase, lowercase, number, and special character."
+      );
+      return;
+    }
 
     const form = e.currentTarget;
     const honeypotEl = form.elements.namedItem("website") as HTMLInputElement | null;
@@ -110,24 +129,26 @@ export default function SignupPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          fullName,
-          username,
-          email,
+          fullName: fullName.trim(),
+          username: username.trim(),
+          email: email.trim(),
           password,
           confirmPassword,
+          agreeToTerms: agreed,
           submissionTimestamp,
         }),
       });
 
       const data = (await res.json()) as {
         message?: string;
-        errors?: Record<string, string>;
+        errors?: Record<string, string | string[]>;
       };
 
       if (!res.ok) {
         if (data.errors) {
-          const firstError = Object.values(data.errors)[0];
-          setError(firstError ?? data.message ?? "Registration failed.");
+          const firstVal = Object.values(data.errors)[0];
+          const firstMsg = Array.isArray(firstVal) ? firstVal[0] : firstVal;
+          setError(firstMsg ?? data.message ?? "Registration failed.");
         } else {
           setError(data.message ?? "Registration failed. Please try again.");
         }
@@ -285,6 +306,9 @@ export default function SignupPage() {
             </button>
           </div>
           {password && <StrengthBar score={passwordScore} />}
+          <p className="mt-1 text-xs text-slate-500">
+            Min 8 chars with uppercase, lowercase, number, and special character (!@#$%^&*)
+          </p>
         </div>
 
         {/* Confirm Password */}

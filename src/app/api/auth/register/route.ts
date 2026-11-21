@@ -34,19 +34,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const { fullName, username, email, password, honeypot, submissionTimestamp } = parsed.data;
+  const { fullName, username, email, password, honeypot } = parsed.data;
 
   // 3. Honeypot check — silently succeed
   if (honeypot && honeypot.length > 0) {
     return NextResponse.json({ success: true, message: "Account created. You can now log in." }, { status: 200 });
-  }
-
-  // 4. Submission timing check — silently succeed if < 2000ms
-  if (submissionTimestamp !== undefined) {
-    const elapsed = Date.now() - submissionTimestamp;
-    if (elapsed < 2000) {
-      return NextResponse.json({ success: true, message: "Account created. You can now log in." }, { status: 200 });
-    }
   }
 
   try {

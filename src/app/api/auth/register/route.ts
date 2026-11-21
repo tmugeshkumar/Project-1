@@ -46,10 +46,24 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     if (!prisma) {
       // Local fallback mode
-      const existing = findLocalUser(email) || findLocalUser(username);
-      if (existing) {
+      const existingByEmail = findLocalUser(email);
+      if (existingByEmail) {
         return NextResponse.json(
-          { success: false, message: "Registration failed. Please check your details." },
+          {
+            success: false,
+            message: "An account with this email address already exists. Please sign in or use a different email.",
+          },
+          { status: 409 }
+        );
+      }
+
+      const existingByUsername = findLocalUser(username);
+      if (existingByUsername) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "This username is already taken. Please choose a different username.",
+          },
           { status: 409 }
         );
       }

@@ -11,7 +11,7 @@ export const registerSchema = z
       .string()
       .min(2, "Full name must be at least 2 characters")
       .max(100, "Full name must not exceed 100 characters")
-      .regex(/^[a-zA-Z\s'-]+$/, "Full name contains invalid characters"),
+      .regex(/^[a-zA-Z\s'.-]+$/, "Full name contains invalid characters"),
     username: usernameSchema,
     email: z.string().email("Please enter a valid email address"),
     password: passwordSchema,

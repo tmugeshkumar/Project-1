@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { siteConfig } from "@/config/site";
 import { Button } from "@/components/ui/Button";
 import { Menu, X, ArrowUpRight, Code2, LogIn, User as UserIcon, ShieldCheck, LogOut } from "lucide-react";
@@ -16,7 +16,6 @@ interface AuthState {
 
 export const Navbar: React.FC = () => {
   const pathname = usePathname();
-  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [user, setUser] = useState<AuthState | null>(null);
@@ -55,17 +54,13 @@ export const Navbar: React.FC = () => {
 
   const handleLogout = async () => {
     try {
-      if (user?.role === "ADMIN") {
-        await fetch("/api/admin/auth/logout", { method: "POST" });
-      } else {
-        await fetch("/api/auth/logout", { method: "POST" });
-      }
+      await fetch("/api/auth/logout", { method: "POST" });
+      await fetch("/api/admin/auth/logout", { method: "POST" });
     } catch {
       // ignore
     } finally {
       setUser(null);
-      router.push("/");
-      router.refresh();
+      window.location.href = "/login";
     }
   };
 
@@ -148,10 +143,11 @@ export const Navbar: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-slate-200 hover:border-red-200"
                   title="Sign Out"
                 >
-                  <LogOut className="w-4 h-4" />
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Sign Out</span>
                 </button>
               </div>
             ) : (
@@ -257,9 +253,10 @@ export const Navbar: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="p-1.5 text-slate-400 hover:text-red-600 transition-colors"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
                   >
-                    <LogOut className="w-4 h-4" />
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Sign Out</span>
                   </button>
                 </div>
               </div>

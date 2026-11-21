@@ -53,6 +53,12 @@ export function clearUserSession(response: NextResponse): NextResponse {
   response.cookies.set(USER_COOKIE, "", {
     ...COOKIE_OPTS,
     maxAge: 0,
+    expires: new Date(0),
+  });
+  response.cookies.set(ADMIN_COOKIE, "", {
+    ...COOKIE_OPTS,
+    maxAge: 0,
+    expires: new Date(0),
   });
   return response;
 }
@@ -90,6 +96,12 @@ export function clearAdminSession(response: NextResponse): NextResponse {
   response.cookies.set(ADMIN_COOKIE, "", {
     ...COOKIE_OPTS,
     maxAge: 0,
+    expires: new Date(0),
+  });
+  response.cookies.set(USER_COOKIE, "", {
+    ...COOKIE_OPTS,
+    maxAge: 0,
+    expires: new Date(0),
   });
   return response;
 }

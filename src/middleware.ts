@@ -8,7 +8,7 @@ import { verifyUserToken, verifyAdminToken } from "@/lib/auth/jwt";
 import { USER_COOKIE, ADMIN_COOKIE } from "@/lib/auth/session";
 
 export async function middleware(req: NextRequest): Promise<NextResponse> {
-  const { pathname, searchParams } = req.nextUrl;
+  const { pathname } = req.nextUrl;
 
   // ── Protected Actions: Contact Us / Discuss Project ───────────────────────
   if (pathname.startsWith("/contact")) {
@@ -63,26 +63,6 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
     return NextResponse.next();
   }
 
-  // ── Redirect logged-in users away from auth pages ──────────────────────────
-  const authOnlyPages = ["/login", "/signup", "/forgot-password"];
-  if (authOnlyPages.includes(pathname)) {
-    const userToken = req.cookies.get(USER_COOKIE)?.value;
-    const adminToken = req.cookies.get(ADMIN_COOKIE)?.value;
-    const redirectTarget = searchParams.get("redirect") || "/";
-
-    if (userToken) {
-      const session = await verifyUserToken(userToken);
-      if (session) {
-        return NextResponse.redirect(new URL(redirectTarget, req.url));
-      }
-    } else if (adminToken) {
-      const adminSession = await verifyAdminToken(adminToken);
-      if (adminSession?.role === "ADMIN") {
-        return NextResponse.redirect(new URL(redirectTarget, req.url));
-      }
-    }
-  }
-
   return NextResponse.next();
 }
 
@@ -92,8 +72,5 @@ export const config = {
     "/contact/:path*",
     "/admin",
     "/admin/:path*",
-    "/login",
-    "/signup",
-    "/forgot-password",
   ],
 };

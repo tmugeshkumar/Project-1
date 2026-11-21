@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAdminAuth } from "@/lib/auth/guards";
 import { getPrismaClient } from "@/lib/db";
+import { getLocalUserById } from "@/lib/auth/local-store";
 import type { AdminSessionPayload } from "@/types/auth";
 
 export const dynamic = "force-dynamic";
@@ -19,13 +20,25 @@ export const GET = withAdminAuth(
     }
 
     const prisma = getPrismaClient();
+
+    // ── Local store fallback ──────────────────────────────────────────────
     if (!prisma) {
-      return NextResponse.json(
-        { success: false, message: "Database not configured. Please contact the administrator." },
-        { status: 503 }
-      );
+      try {
+        const record = getLocalUserById(id);
+        if (!record) {
+          return NextResponse.json({ success: false, message: "User not found." }, { status: 404 });
+        }
+        const { passwordHash: _ph, ...user } = record;
+        return NextResponse.json({ success: true, data: user }, { status: 200 });
+      } catch {
+        return NextResponse.json(
+          { success: false, message: "An error occurred reading local user store." },
+          { status: 500 }
+        );
+      }
     }
 
+    // ── Prisma path ───────────────────────────────────────────────────────
     try {
       const user = await prisma.user.findUnique({
         where: { id },

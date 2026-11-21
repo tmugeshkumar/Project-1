@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getPrismaClient } from "@/lib/db";
+import { getAllLocalUsers } from "@/lib/auth/local-store";
 import {
   Users,
   CheckCircle2,
@@ -7,7 +8,6 @@ import {
   UserCheck,
   UserX,
   ArrowRight,
-  Database,
   ExternalLink,
 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
@@ -17,40 +17,6 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
   const prisma = getPrismaClient();
-
-  if (!prisma) {
-    return (
-      <div className="max-w-5xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">System Overview</h1>
-          <p className="text-surface-400 text-sm mt-1">
-            Real-time status of users and security metrics.
-          </p>
-        </div>
-
-        <div className="p-8 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-surface-200">
-          <div className="flex items-center gap-3 text-amber-400 mb-3">
-            <Database className="w-6 h-6" />
-            <h2 className="text-lg font-semibold">PostgreSQL Database Connection Required</h2>
-          </div>
-          <p className="text-sm text-surface-300 mb-4 max-w-2xl leading-relaxed">
-            The admin console is running in staging mode. Configure your{" "}
-            <code className="px-1.5 py-0.5 rounded bg-surface-900 text-amber-300 font-mono text-xs">
-              DATABASE_URL
-            </code>{" "}
-            in your environment to persist and view live registered accounts.
-          </p>
-          <div className="flex items-center gap-4">
-            <Link href="/admin/users">
-              <Button variant="secondary" size="sm">
-                View Users Management
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   let totalUsers = 0;
   let verifiedUsers = 0;
@@ -64,38 +30,56 @@ export default async function AdminDashboardPage() {
     email: string;
     emailVerified: boolean;
     accountStatus: string;
-    createdAt: Date;
+    createdAt: Date | string;
   }> = [];
 
-  try {
-    const [total, verified, active, suspended, recent] = await Promise.all([
-      prisma.user.count(),
-      prisma.user.count({ where: { emailVerified: true } }),
-      prisma.user.count({ where: { accountStatus: "ACTIVE" } }),
-      prisma.user.count({ where: { accountStatus: "SUSPENDED" } }),
-      prisma.user.findMany({
-        take: 5,
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          fullName: true,
-          username: true,
-          email: true,
-          emailVerified: true,
-          accountStatus: true,
-          createdAt: true,
-        },
-      }),
-    ]);
+  if (!prisma) {
+    // ── Local store fallback ────────────────────────────────────────────
+    try {
+      const allUsers = getAllLocalUsers();
+      totalUsers = allUsers.length;
+      verifiedUsers = allUsers.filter((u) => u.emailVerified).length;
+      unverifiedUsers = totalUsers - verifiedUsers;
+      activeUsers = allUsers.filter((u) => u.accountStatus === "ACTIVE").length;
+      suspendedUsers = allUsers.filter((u) => u.accountStatus === "SUSPENDED").length;
+      recentRegistrations = [...allUsers]
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 5);
+    } catch (err) {
+      console.error("[Admin Dashboard Local Store Error]:", err);
+    }
+  } else {
+    // ── Prisma path ─────────────────────────────────────────────────────
+    try {
+      const [total, verified, active, suspended, recent] = await Promise.all([
+        prisma.user.count(),
+        prisma.user.count({ where: { emailVerified: true } }),
+        prisma.user.count({ where: { accountStatus: "ACTIVE" } }),
+        prisma.user.count({ where: { accountStatus: "SUSPENDED" } }),
+        prisma.user.findMany({
+          take: 5,
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            fullName: true,
+            username: true,
+            email: true,
+            emailVerified: true,
+            accountStatus: true,
+            createdAt: true,
+          },
+        }),
+      ]);
 
-    totalUsers = total;
-    verifiedUsers = verified;
-    unverifiedUsers = total - verified;
-    activeUsers = active;
-    suspendedUsers = suspended;
-    recentRegistrations = recent;
-  } catch (err) {
-    console.error("[Admin Dashboard Query Error]:", err);
+      totalUsers = total;
+      verifiedUsers = verified;
+      unverifiedUsers = total - verified;
+      activeUsers = active;
+      suspendedUsers = suspended;
+      recentRegistrations = recent;
+    } catch (err) {
+      console.error("[Admin Dashboard Query Error]:", err);
+    }
   }
 
   const statCards = [

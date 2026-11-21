@@ -14,6 +14,7 @@ export interface LocalUserRecord {
   accountStatus: "ACTIVE" | "SUSPENDED" | "PENDING_VERIFICATION";
   createdAt: string;
   updatedAt: string;
+  lastLoginAt?: string | null;
 }
 
 const DATA_DIR = path.join(process.cwd(), ".data");
@@ -115,4 +116,27 @@ export function saveLocalUser(user: Omit<LocalUserRecord, "id" | "createdAt" | "
   users.push(record);
   fs.writeFileSync(DATA_FILE, JSON.stringify(users, null, 2), "utf8");
   return record;
+}
+
+export function getAllLocalUsers(): LocalUserRecord[] {
+  return ensureStore();
+}
+
+export function getLocalUserById(id: string): LocalUserRecord | null {
+  const users = ensureStore();
+  return users.find((u) => u.id === id) ?? null;
+}
+
+export function updateLocalUserStatus(
+  id: string,
+  status: "ACTIVE" | "SUSPENDED" | "PENDING_VERIFICATION"
+): LocalUserRecord | null {
+  const users = ensureStore();
+  const index = users.findIndex((u) => u.id === id);
+  if (index === -1) return null;
+
+  users[index].accountStatus = status;
+  users[index].updatedAt = new Date().toISOString();
+  fs.writeFileSync(DATA_FILE, JSON.stringify(users, null, 2), "utf8");
+  return users[index];
 }

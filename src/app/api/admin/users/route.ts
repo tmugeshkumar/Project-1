@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAdminAuth } from "@/lib/auth/guards";
 import { getPrismaClient } from "@/lib/db";
+import { getAllLocalUsers } from "@/lib/auth/local-store";
 import { Prisma } from "@prisma/client";
 import type { AdminSessionPayload } from "@/types/auth";
 
@@ -9,14 +10,6 @@ export const dynamic = "force-dynamic";
 export const GET = withAdminAuth(
   async (req: NextRequest, { session }: { params: Record<string, string>; session: AdminSessionPayload }) => {
     void session; // authenticated via withAdminAuth
-
-    const prisma = getPrismaClient();
-    if (!prisma) {
-      return NextResponse.json(
-        { success: false, message: "Database not configured. Please contact the administrator." },
-        { status: 503 }
-      );
-    }
 
     const { searchParams } = req.nextUrl;
     const rawPage = parseInt(searchParams.get("page") ?? "1", 10);
@@ -30,6 +23,74 @@ export const GET = withAdminAuth(
     const sortBy = searchParams.get("sortBy") ?? "createdAt";
     const sortOrder = (searchParams.get("sortOrder") ?? "desc") === "asc" ? "asc" : "desc";
 
+    const prisma = getPrismaClient();
+
+    // ── Local store fallback (no DB configured) ──────────────────────────
+    if (!prisma) {
+      try {
+        let users = getAllLocalUsers().map(({ passwordHash: _ph, ...u }) => u);
+
+        // Filter: search
+        if (search) {
+          const q = search.toLowerCase();
+          users = users.filter(
+            (u) =>
+              u.fullName.toLowerCase().includes(q) ||
+              u.username.toLowerCase().includes(q) ||
+              u.email.toLowerCase().includes(q)
+          );
+        }
+
+        // Filter: status
+        if (status && ["ACTIVE", "SUSPENDED", "PENDING_VERIFICATION"].includes(status)) {
+          users = users.filter((u) => u.accountStatus === status);
+        }
+
+        // Filter: emailVerified
+        if (verified !== undefined) {
+          const wantVerified = verified === "true";
+          users = users.filter((u) => u.emailVerified === wantVerified);
+        }
+
+        // Sort
+        const allowedSortFields = ["createdAt", "lastLoginAt", "fullName", "username", "email"] as const;
+        type SortField = (typeof allowedSortFields)[number];
+        const orderByField: SortField = (allowedSortFields as readonly string[]).includes(sortBy)
+          ? (sortBy as SortField)
+          : "createdAt";
+
+        users.sort((a, b) => {
+          const av = (a as unknown as Record<string, unknown>)[orderByField] ?? "";
+          const bv = (b as unknown as Record<string, unknown>)[orderByField] ?? "";
+          const cmp = String(av).localeCompare(String(bv));
+          return sortOrder === "asc" ? cmp : -cmp;
+        });
+
+        const total = users.length;
+        const paged = users.slice((page - 1) * pageSize, page * pageSize);
+
+        return NextResponse.json(
+          {
+            success: true,
+            data: {
+              users: paged,
+              total,
+              page,
+              pageSize,
+              totalPages: Math.ceil(total / pageSize),
+            },
+          },
+          { status: 200 }
+        );
+      } catch {
+        return NextResponse.json(
+          { success: false, message: "An error occurred reading local user store." },
+          { status: 500 }
+        );
+      }
+    }
+
+    // ── Prisma path ───────────────────────────────────────────────────────
     try {
       const where: Prisma.UserWhereInput = {};
 
@@ -52,7 +113,7 @@ export const GET = withAdminAuth(
       const allowedSortFields = ["createdAt", "lastLoginAt", "fullName", "username", "email"];
       const orderByField = allowedSortFields.includes(sortBy) ? sortBy : "createdAt";
 
-      const [users, total] = await Promise.all([
+      const [dbUsers, total] = await Promise.all([
         prisma.user.findMany({
           where,
           orderBy: { [orderByField]: sortOrder },
@@ -78,7 +139,7 @@ export const GET = withAdminAuth(
         {
           success: true,
           data: {
-            users,
+            users: dbUsers,
             total,
             page,
             pageSize,

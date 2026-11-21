@@ -148,23 +148,23 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl p-8">
+    <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xl p-6 sm:p-10">
       {/* Header */}
       <div className="text-center mb-8">
-        <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-brand-600 mb-4">
-          <span className="text-white font-bold text-lg">
+        <div className="w-12 h-12 rounded-xl bg-slate-900 flex items-center justify-center text-white shadow-md mx-auto mb-3">
+          <span className="font-bold text-lg text-brand-400">
             {siteConfig.name.charAt(0)}
           </span>
         </div>
-        <h1 className="text-2xl font-bold text-white">Create Account</h1>
-        <p className="text-gray-400 mt-1 text-sm">
-          Join {siteConfig.name} today
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Create Account</h1>
+        <p className="text-slate-500 mt-1 text-sm">
+          Join {siteConfig.name} to start your project discussion
         </p>
       </div>
 
       {/* Error */}
       {error && (
-        <div className="mb-6 px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+        <div className="mb-6 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
           {error}
         </div>
       )}
@@ -184,7 +184,7 @@ export default function SignupPage() {
         <div>
           <label
             htmlFor="fullName"
-            className="block text-sm font-medium text-gray-300 mb-1.5"
+            className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5"
           >
             Full Name
           </label>
@@ -195,8 +195,8 @@ export default function SignupPage() {
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
             className={cn(
-              "w-full px-3.5 py-2.5 rounded-lg text-sm bg-gray-800 border border-gray-700",
-              "text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
+              "w-full px-3.5 py-2.5 rounded-lg text-sm bg-white border border-slate-300",
+              "text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors shadow-sm"
             )}
             placeholder="John Doe"
             disabled={isLoading}
@@ -207,7 +207,7 @@ export default function SignupPage() {
         <div>
           <label
             htmlFor="username"
-            className="block text-sm font-medium text-gray-300 mb-1.5"
+            className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5"
           >
             Username
           </label>
@@ -218,13 +218,13 @@ export default function SignupPage() {
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             className={cn(
-              "w-full px-3.5 py-2.5 rounded-lg text-sm bg-gray-800 border border-gray-700",
-              "text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
+              "w-full px-3.5 py-2.5 rounded-lg text-sm bg-white border border-slate-300 font-mono",
+              "text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors shadow-sm"
             )}
             placeholder="johndoe"
             disabled={isLoading}
           />
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-slate-500">
             3–30 chars, letters, numbers, underscores, hyphens
           </p>
         </div>
@@ -233,7 +233,7 @@ export default function SignupPage() {
         <div>
           <label
             htmlFor="email"
-            className="block text-sm font-medium text-gray-300 mb-1.5"
+            className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5"
           >
             Email Address
           </label>
@@ -244,8 +244,8 @@ export default function SignupPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className={cn(
-              "w-full px-3.5 py-2.5 rounded-lg text-sm bg-gray-800 border border-gray-700",
-              "text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
+              "w-full px-3.5 py-2.5 rounded-lg text-sm bg-white border border-slate-300",
+              "text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors shadow-sm"
             )}
             placeholder="you@example.com"
             disabled={isLoading}
@@ -256,7 +256,7 @@ export default function SignupPage() {
         <div>
           <label
             htmlFor="password"
-            className="block text-sm font-medium text-gray-300 mb-1.5"
+            className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5"
           >
             Password
           </label>
@@ -268,16 +268,16 @@ export default function SignupPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className={cn(
-                "w-full px-3.5 py-2.5 pr-10 rounded-lg text-sm bg-gray-800 border border-gray-700",
-                "text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
+                "w-full px-3.5 py-2.5 pr-10 rounded-lg text-sm bg-white border border-slate-300",
+                "text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors shadow-sm"
               )}
-              placeholder="••••••••"
+              placeholder="••••••••••••"
               disabled={isLoading}
             />
             <button
               type="button"
               onClick={() => setShowPassword((v) => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200 transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
               tabIndex={-1}
               aria-label={showPassword ? "Hide password" : "Show password"}
             >
@@ -291,7 +291,7 @@ export default function SignupPage() {
         <div>
           <label
             htmlFor="confirmPassword"
-            className="block text-sm font-medium text-gray-300 mb-1.5"
+            className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5"
           >
             Confirm Password
           </label>
@@ -303,19 +303,19 @@ export default function SignupPage() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               className={cn(
-                "w-full px-3.5 py-2.5 pr-10 rounded-lg text-sm bg-gray-800 border border-gray-700",
-                "text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors",
+                "w-full px-3.5 py-2.5 pr-10 rounded-lg text-sm bg-white border border-slate-300",
+                "text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors shadow-sm",
                 confirmPassword &&
                   confirmPassword !== password &&
-                  "border-red-500/60"
+                  "border-red-400"
               )}
-              placeholder="••••••••"
+              placeholder="••••••••••••"
               disabled={isLoading}
             />
             <button
               type="button"
               onClick={() => setShowConfirm((v) => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200 transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
               tabIndex={-1}
               aria-label={
                 showConfirm ? "Hide confirm password" : "Show confirm password"
@@ -325,37 +325,37 @@ export default function SignupPage() {
             </button>
           </div>
           {confirmPassword && confirmPassword !== password && (
-            <p className="mt-1 text-xs text-red-400">
+            <p className="mt-1 text-xs text-red-600">
               Passwords do not match
             </p>
           )}
         </div>
 
         {/* Terms */}
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-3 pt-2">
           <input
             id="agreed"
             type="checkbox"
             checked={agreed}
             onChange={(e) => setAgreed(e.target.checked)}
-            className="mt-0.5 h-4 w-4 rounded border-gray-600 bg-gray-800 text-brand-600 focus:ring-brand-500 focus:ring-offset-gray-900"
+            className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
             disabled={isLoading}
           />
           <label
             htmlFor="agreed"
-            className="text-sm text-gray-400 leading-snug"
+            className="text-xs text-slate-600 leading-snug"
           >
             I agree to the{" "}
             <Link
               href="/terms"
-              className="text-brand-400 hover:text-brand-300 transition-colors"
+              className="text-brand-600 hover:text-brand-700 font-medium underline underline-offset-2"
             >
               Terms and Conditions
             </Link>{" "}
             and{" "}
             <Link
               href="/privacy"
-              className="text-brand-400 hover:text-brand-300 transition-colors"
+              className="text-brand-600 hover:text-brand-700 font-medium underline underline-offset-2"
             >
               Privacy Policy
             </Link>
@@ -367,20 +367,20 @@ export default function SignupPage() {
           variant="primary"
           size="lg"
           isLoading={isLoading}
-          className="w-full"
+          className="w-full justify-center shadow-md shadow-brand-500/20"
           disabled={isLoading}
         >
           Create Account
         </Button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-gray-500">
+      <p className="mt-6 text-center text-sm text-slate-600">
         Already have an account?{" "}
         <Link
           href={typeof window !== "undefined" && new URLSearchParams(window.location.search).get("redirect") ? `/login?redirect=${encodeURIComponent(new URLSearchParams(window.location.search).get("redirect")!)}` : "/login"}
-          className="text-brand-400 hover:text-brand-300 font-medium transition-colors"
+          className="text-brand-600 hover:text-brand-700 font-bold transition-colors ml-1"
         >
-          Sign in
+          Sign in here
         </Link>
       </p>
     </div>

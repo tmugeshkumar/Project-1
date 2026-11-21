@@ -1,8 +1,12 @@
 import React from "react";
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { siteConfig } from "@/config/site";
 import { ContactForm } from "@/components/forms/ContactForm";
 import { Badge } from "@/components/ui/Badge";
+import { USER_COOKIE, ADMIN_COOKIE } from "@/lib/auth/session";
+import { verifyUserToken, verifyAdminToken } from "@/lib/auth/jwt";
 import {
   Mail,
   Phone,
@@ -15,12 +19,34 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Contact Us & Project Inquiry",
   description: `Get in touch with ${siteConfig.name}. Submit your custom software project specifications or request a reusable product commercial license.`,
 };
 
-export default function ContactPage() {
+export default async function ContactPage() {
+  // Server-side authentication verification
+  const cookieStore = cookies();
+  const userToken = cookieStore.get(USER_COOKIE)?.value;
+  const adminToken = cookieStore.get(ADMIN_COOKIE)?.value;
+  let isAuthenticated = false;
+
+  if (userToken) {
+    const userSession = await verifyUserToken(userToken);
+    if (userSession) isAuthenticated = true;
+  }
+
+  if (!isAuthenticated && adminToken) {
+    const adminSession = await verifyAdminToken(adminToken);
+    if (adminSession?.role === "ADMIN") isAuthenticated = true;
+  }
+
+  if (!isAuthenticated) {
+    redirect("/login?redirect=/contact");
+  }
+
   return (
     <div className="bg-white">
       {/* Header Banner */}

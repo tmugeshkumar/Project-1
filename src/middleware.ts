@@ -88,7 +88,9 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
 
 export const config = {
   matcher: [
+    "/contact",
     "/contact/:path*",
+    "/admin",
     "/admin/:path*",
     "/login",
     "/signup",

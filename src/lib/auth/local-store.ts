@@ -53,7 +53,7 @@ function ensureStore(): LocalUserRecord[] {
       return [defaultAdmin];
     }
 
-    const raw = fs.readFileSync(DATA_FILE, "utf8");
+    const raw = fs.readFileSync(DATA_FILE, "utf8").replace(/^\uFEFF/, "");
     const users: LocalUserRecord[] = JSON.parse(raw);
 
     // Ensure default admin exists
@@ -138,6 +138,24 @@ export function updateLocalUserStatus(
 
   users[index].accountStatus = status;
   users[index].updatedAt = new Date().toISOString();
+  fs.writeFileSync(DATA_FILE, JSON.stringify(users, null, 2), "utf8");
+  return users[index];
+}
+
+export function updateLocalUser(
+  id: string,
+  updates: Partial<Pick<LocalUserRecord, "fullName" | "email" | "phone" | "passwordHash" | "accountStatus">>
+): LocalUserRecord | null {
+  const users = ensureStore();
+  const index = users.findIndex((u) => u.id === id);
+  if (index === -1) return null;
+
+  users[index] = {
+    ...users[index],
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  };
+
   fs.writeFileSync(DATA_FILE, JSON.stringify(users, null, 2), "utf8");
   return users[index];
 }

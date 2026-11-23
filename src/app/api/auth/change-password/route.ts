@@ -7,68 +7,74 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getUserSessionFromRequest } from "@/lib/auth/session";
-import { requestOtpSchema, changePasswordWithOtpSchema } from "@/lib/validations/auth";
+import { changePasswordWithOtpSchema } from "@/lib/validations/auth";
 import { createOtp, verifyOtp, clearOtp } from "@/lib/auth/otp-store";
 import { sendOtpSms } from "@/lib/sms/send-otp";
 import { hashPassword } from "@/lib/auth/password";
 import { getPrismaClient } from "@/lib/db";
-import fs from "fs";
-import path from "path";
+import { getLocalUserById, updateLocalUser } from "@/lib/auth/local-store";
 
 export const dynamic = "force-dynamic";
 
-// ── Step 1: Request OTP ───────────────────────────────────────────────────────
+function maskPhone(phone: string): string {
+  const clean = phone.trim();
+  if (clean.length <= 4) return clean;
+  const last4 = clean.slice(-4);
+  const prefix = clean.startsWith("+") ? clean.slice(0, 3) : "";
+  return `${prefix} ******${last4}`;
+}
+
+// ── Step 1: Request OTP to registered mobile number ─────────────────────────
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const session = await getUserSessionFromRequest(req);
   if (!session) {
     return NextResponse.json({ success: false, message: "Authentication required." }, { status: 401 });
   }
 
-  let body: unknown;
+  let body: { phone?: string } = {};
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ success: false, message: "Invalid request body." }, { status: 400 });
+    // optional body if user already has phone registered
   }
 
-  const parsed = requestOtpSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { success: false, message: "Please enter a valid phone number.", errors: parsed.error.flatten().fieldErrors },
-      { status: 422 }
-    );
-  }
-
-  const { phone } = parsed.data;
   const userId = session.userId;
+  const user = getLocalUserById(userId);
+  if (!user) {
+    return NextResponse.json({ success: false, message: "User not found." }, { status: 404 });
+  }
 
-  // Generate OTP and send SMS
-  const otp = createOtp(userId, phone);
-  const result = await sendOtpSms(phone, otp);
+  // Strictly enforce registered phone number if present
+  let targetPhone = user.phone;
+  if (!targetPhone || targetPhone.trim().length === 0) {
+    if (!body.phone || body.phone.trim().length < 7) {
+      return NextResponse.json(
+        {
+          success: false,
+          needsPhone: true,
+          message: "No registered mobile number found. Please add your mobile number in your profile first.",
+        },
+        { status: 400 }
+      );
+    }
+    targetPhone = body.phone.trim();
+    // Save initial registered phone
+    updateLocalUser(userId, { phone: targetPhone });
+  }
+
+  // Generate OTP and send SMS to the registered number
+  const otp = createOtp(userId, targetPhone);
+  const result = await sendOtpSms(targetPhone, otp);
 
   if (!result.sent) {
     return NextResponse.json({ success: false, message: result.error ?? "Failed to send OTP." }, { status: 500 });
   }
 
-  // Persist phone to local store if not already set
-  const prisma = getPrismaClient();
-  if (!prisma) {
-    const DATA_FILE = path.join(process.cwd(), ".data", "users.json");
-    try {
-      const users = JSON.parse(fs.readFileSync(DATA_FILE, "utf8")) as Array<Record<string, unknown>>;
-      const idx = users.findIndex((u) => u.id === userId);
-      if (idx !== -1 && !users[idx].phone) {
-        users[idx].phone = phone;
-        fs.writeFileSync(DATA_FILE, JSON.stringify(users, null, 2), "utf8");
-      }
-    } catch { /* non-fatal */ }
-  }
-
   return NextResponse.json(
     {
       success: true,
-      message: "OTP sent to your phone number.",
-      // In dev mode (no SMS provider), return OTP in response for testing
+      message: `OTP sent to your registered mobile number (${maskPhone(targetPhone)}).`,
+      maskedPhone: maskPhone(targetPhone),
       ...(result.devOtp !== undefined && { devOtp: result.devOtp }),
     },
     { status: 200 }
@@ -112,22 +118,12 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
 
   const prisma = getPrismaClient();
   if (!prisma) {
-    // Local store path
-    const DATA_FILE = path.join(process.cwd(), ".data", "users.json");
-    try {
-      const users = JSON.parse(fs.readFileSync(DATA_FILE, "utf8")) as Array<Record<string, unknown>>;
-      const idx = users.findIndex((u) => u.id === userId);
-      if (idx === -1) {
-        return NextResponse.json({ success: false, message: "User not found." }, { status: 404 });
-      }
-      users[idx].passwordHash = newHash;
-      users[idx].updatedAt = new Date().toISOString();
-      fs.writeFileSync(DATA_FILE, JSON.stringify(users, null, 2), "utf8");
-      clearOtp(userId);
-      return NextResponse.json({ success: true, message: "Password changed successfully." }, { status: 200 });
-    } catch {
-      return NextResponse.json({ success: false, message: "Failed to update password." }, { status: 500 });
+    const updated = updateLocalUser(userId, { passwordHash: newHash });
+    if (!updated) {
+      return NextResponse.json({ success: false, message: "User not found." }, { status: 404 });
     }
+    clearOtp(userId);
+    return NextResponse.json({ success: true, message: "Password changed successfully." }, { status: 200 });
   }
 
   // Prisma path

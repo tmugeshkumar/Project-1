@@ -13,6 +13,7 @@ import {
   X,
   ShieldCheck,
   UserCog,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +26,7 @@ export default function AdminSidebar() {
   const navItems = [
     { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
     { label: "Registered Users", href: "/admin/users", icon: Users },
+    { label: "Change Requests", href: "/admin/change-requests", icon: FileText },
     { label: "Audit Logs", href: "/admin/audit-logs", icon: ShieldAlert },
     { label: "My Profile", href: "/admin/profile", icon: UserCog },
   ];

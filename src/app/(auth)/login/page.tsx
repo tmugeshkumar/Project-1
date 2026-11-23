@@ -12,6 +12,8 @@ import {
   AlertCircle,
   CheckCircle2,
   Code2,
+  KeyRound,
+  Phone,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { siteConfig } from "@/config/site";
@@ -23,7 +25,7 @@ export default function LoginPage() {
   const [resetNotice, setResetNotice] = useState(false);
 
   // Tab state: "user" is the default, ensuring User Login always shows first
-  const [activeTab, setActiveTab] = useState<"user" | "admin">("user");
+  const [activeTab, setActiveTab] = useState<"user" | "admin" | "reset">("user");
 
   // Read URL parameters on mount
   useEffect(() => {
@@ -36,6 +38,7 @@ export default function LoginPage() {
 
       if (redirect) setRedirectUrl(redirect);
       if (tab === "admin") setActiveTab("admin");
+      if (tab === "reset") setActiveTab("reset");
       if (registered) setRegisteredNotice(true);
       if (reset) setResetNotice(true);
     }
@@ -50,6 +53,20 @@ export default function LoginPage() {
   const [adminIdentifier, setAdminIdentifier] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
   const [showAdminPassword, setShowAdminPassword] = useState(false);
+
+  // Reset via Mobile OTP states
+  const [resetIdentifier, setResetIdentifier] = useState("");
+  const [resetOtp, setResetOtp] = useState("");
+  const [resetNewPassword, setResetNewPassword] = useState("");
+  const [resetConfirmPassword, setResetConfirmPassword] = useState("");
+  const [showResetNewPassword, setShowResetNewPassword] = useState(false);
+  const [showResetConfirmPassword, setShowResetConfirmPassword] = useState(false);
+  const [resetStep, setResetStep] = useState<"request" | "verify">("request");
+  const [resetMaskedPhone, setResetMaskedPhone] = useState("");
+  const [resetDevOtp, setResetDevOtp] = useState<string | null>(null);
+  const [resetBusy, setResetBusy] = useState(false);
+  const [resetError, setResetError] = useState("");
+  const [resetSuccessMsg, setResetSuccessMsg] = useState("");
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -85,6 +102,107 @@ export default function LoginPage() {
       setError("A network error occurred. Please try again.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Handle Requesting OTP to registered mobile number
+  const handleRequestResetOtp = async (e: FormEvent) => {
+    e.preventDefault();
+    setResetError("");
+    setResetSuccessMsg("");
+
+    if (!resetIdentifier.trim()) {
+      setResetError("Please enter your username or registered email address.");
+      return;
+    }
+
+    setResetBusy(true);
+    try {
+      const res = await fetch("/api/auth/forgot-password-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier: resetIdentifier.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setResetError(data.message || "Failed to send OTP.");
+        return;
+      }
+
+      setResetStep("verify");
+      setResetMaskedPhone(data.maskedPhone || "");
+      setResetSuccessMsg(data.message || "OTP sent to your registered mobile number.");
+      if (data.devOtp) {
+        setResetDevOtp(data.devOtp);
+      }
+    } catch {
+      setResetError("A network error occurred. Please try again.");
+    } finally {
+      setResetBusy(false);
+    }
+  };
+
+  // Handle Verifying OTP and changing password
+  const handleVerifyResetOtp = async (e: FormEvent) => {
+    e.preventDefault();
+    setResetError("");
+    setResetSuccessMsg("");
+
+    if (!resetOtp.trim() || resetOtp.length !== 6) {
+      setResetError("Please enter the 6-digit numeric verification OTP.");
+      return;
+    }
+    if (!resetNewPassword || resetNewPassword.length < 8) {
+      setResetError("New password must be at least 8 characters.");
+      return;
+    }
+    if (
+      !/[A-Z]/.test(resetNewPassword) ||
+      !/[a-z]/.test(resetNewPassword) ||
+      !/[0-9]/.test(resetNewPassword) ||
+      !/[^A-Za-z0-9]/.test(resetNewPassword)
+    ) {
+      setResetError("Password must include uppercase, lowercase, number, and special character.");
+      return;
+    }
+    if (resetNewPassword !== resetConfirmPassword) {
+      setResetError("Passwords do not match.");
+      return;
+    }
+
+    setResetBusy(true);
+    try {
+      const res = await fetch("/api/auth/forgot-password-otp", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          identifier: resetIdentifier.trim(),
+          otp: resetOtp.trim(),
+          newPassword: resetNewPassword,
+          confirmPassword: resetConfirmPassword,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setResetError(data.message || "Failed to update password.");
+        return;
+      }
+
+      // Successful password reset! Switch to User Login tab and show success notice
+      setResetNotice(true);
+      setActiveTab("user");
+      setUserIdentifier(resetIdentifier.trim());
+      setUserPassword("");
+      // Reset state
+      setResetStep("request");
+      setResetOtp("");
+      setResetNewPassword("");
+      setResetConfirmPassword("");
+      setResetDevOtp(null);
+    } catch {
+      setResetError("A network error occurred. Please try again.");
+    } finally {
+      setResetBusy(false);
     }
   };
 
@@ -180,8 +298,8 @@ export default function LoginPage() {
         </div>
       )}
 
-      {/* Tab Switcher: User Login vs Admin Login */}
-      <div className="grid grid-cols-2 p-1.5 bg-slate-100/90 border border-slate-200 rounded-xl mb-6">
+      {/* Tab Switcher: User Login vs Admin Login vs Change Password */}
+      <div className="grid grid-cols-3 p-1.5 bg-slate-100/90 border border-slate-200 rounded-xl mb-6 gap-1">
         <button
           type="button"
           onClick={() => {
@@ -189,13 +307,13 @@ export default function LoginPage() {
             setError("");
           }}
           className={cn(
-            "flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs sm:text-sm font-semibold transition-all",
+            "flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-semibold transition-all text-center",
             activeTab === "user"
               ? "bg-white text-brand-700 shadow-sm border border-slate-200/60"
               : "text-slate-600 hover:text-slate-900"
           )}
         >
-          <User className="w-4 h-4 text-brand-600" />
+          <User className="w-3.5 h-3.5 text-brand-600 shrink-0" />
           <span>User Login</span>
         </button>
 
@@ -206,14 +324,33 @@ export default function LoginPage() {
             setError("");
           }}
           className={cn(
-            "flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs sm:text-sm font-semibold transition-all",
+            "flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-semibold transition-all text-center",
             activeTab === "admin"
               ? "bg-slate-900 text-white shadow-sm"
               : "text-slate-600 hover:text-slate-900"
           )}
         >
-          <ShieldCheck className="w-4 h-4 text-brand-400" />
+          <ShieldCheck className="w-3.5 h-3.5 text-brand-400 shrink-0" />
           <span>Admin Portal</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab("reset");
+            setError("");
+            if (userIdentifier) setResetIdentifier(userIdentifier);
+            else if (adminIdentifier) setResetIdentifier(adminIdentifier);
+          }}
+          className={cn(
+            "flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-semibold transition-all text-center",
+            activeTab === "reset"
+              ? "bg-brand-600 text-white shadow-sm"
+              : "text-slate-600 hover:text-slate-900"
+          )}
+        >
+          <KeyRound className="w-3.5 h-3.5 shrink-0" />
+          <span>Change Password</span>
         </button>
       </div>
 
@@ -253,12 +390,17 @@ export default function LoginPage() {
               >
                 Password
               </label>
-              <Link
-                href="/forgot-password"
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab("reset");
+                  if (userIdentifier) setResetIdentifier(userIdentifier);
+                  setError("");
+                }}
                 className="text-xs text-brand-600 hover:text-brand-700 font-medium transition-colors"
               >
-                Forgot password?
-              </Link>
+                Forgot / Change password?
+              </button>
             </div>
             <div className="relative">
               <input
@@ -348,12 +490,25 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label
-              htmlFor="admin-password"
-              className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5"
-            >
-              Admin Password
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label
+                htmlFor="admin-password"
+                className="block text-xs font-semibold uppercase tracking-wider text-slate-700"
+              >
+                Admin Password
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab("reset");
+                  if (adminIdentifier) setResetIdentifier(adminIdentifier);
+                  setError("");
+                }}
+                className="text-xs text-brand-600 hover:text-brand-700 font-medium transition-colors"
+              >
+                Forgot / Change password?
+              </button>
+            </div>
             <div className="relative">
               <input
                 id="admin-password"
@@ -400,6 +555,230 @@ export default function LoginPage() {
             </span>
           </div>
         </form>
+      )}
+
+      {/* TAB 3: RESET / CHANGE PASSWORD VIA REGISTERED MOBILE OTP */}
+      {activeTab === "reset" && (
+        <div className="space-y-4">
+          <div className="p-3 rounded-lg bg-blue-50 text-blue-900 border border-blue-200 text-xs flex items-start gap-2">
+            <Phone className="w-4 h-4 text-brand-600 shrink-0 mt-0.5" />
+            <span>
+              For security, passwords can only be changed after single-use OTP verification sent to your registered mobile number.
+            </span>
+          </div>
+
+          {resetError && (
+            <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+              <p className="flex-1">{resetError}</p>
+            </div>
+          )}
+
+          {resetSuccessMsg && (
+            <div className="p-3.5 rounded-xl bg-green-50 border border-green-200 text-green-800 text-xs flex items-start gap-2">
+              <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0 mt-0.5" />
+              <p className="flex-1">{resetSuccessMsg}</p>
+            </div>
+          )}
+
+          {resetDevOtp && (
+            <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-1">
+              <div className="font-semibold text-amber-800">🔧 Development Mode SMS Code:</div>
+              <p>
+                Verification OTP dispatched to registered mobile:{" "}
+                <span className="font-mono font-bold text-sm bg-white px-2 py-0.5 rounded border border-amber-300 text-amber-950 tracking-widest">
+                  {resetDevOtp}
+                </span>
+              </p>
+            </div>
+          )}
+
+          {resetStep === "request" ? (
+            <form onSubmit={handleRequestResetOtp} className="space-y-4">
+              <div>
+                <label
+                  htmlFor="reset-identifier"
+                  className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5"
+                >
+                  Username or Registered Email
+                </label>
+                <input
+                  id="reset-identifier"
+                  type="text"
+                  required
+                  value={resetIdentifier}
+                  onChange={(e) => setResetIdentifier(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-lg text-sm bg-white border border-slate-300 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 shadow-sm"
+                  placeholder="e.g. admin or mugesh"
+                  disabled={resetBusy}
+                />
+                <p className="mt-1 text-xs text-slate-500">
+                  We will find the mobile number registered on this account and send an OTP.
+                </p>
+              </div>
+
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                isLoading={resetBusy}
+                disabled={resetBusy}
+                className="w-full justify-center shadow-md shadow-brand-500/20"
+              >
+                Send OTP to Registered Mobile
+              </Button>
+
+              <div className="pt-3 text-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab("user");
+                    setResetError("");
+                  }}
+                  className="text-xs text-slate-500 hover:text-slate-800 font-medium"
+                >
+                  ← Back to User Login
+                </button>
+              </div>
+            </form>
+          ) : (
+            <form onSubmit={handleVerifyResetOtp} className="space-y-4">
+              <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-600 flex items-center justify-between">
+                <span>OTP sent to: <strong className="font-mono text-slate-900">{resetMaskedPhone}</strong></span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResetStep("request");
+                    setResetOtp("");
+                    setResetError("");
+                    setResetDevOtp(null);
+                  }}
+                  className="text-brand-600 hover:underline font-medium text-xs"
+                >
+                  Change Account
+                </button>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="reset-otp"
+                  className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5"
+                >
+                  Enter 6-Digit Mobile OTP *
+                </label>
+                <input
+                  id="reset-otp"
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  required
+                  value={resetOtp}
+                  onChange={(e) => setResetOtp(e.target.value.replace(/\D/g, ""))}
+                  className="w-full px-3.5 py-2.5 rounded-lg text-lg bg-white border border-slate-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono tracking-widest text-center shadow-sm"
+                  placeholder="123456"
+                  disabled={resetBusy}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="reset-new-password"
+                  className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5"
+                >
+                  New Password *
+                </label>
+                <div className="relative">
+                  <input
+                    id="reset-new-password"
+                    type={showResetNewPassword ? "text" : "password"}
+                    required
+                    value={resetNewPassword}
+                    onChange={(e) => setResetNewPassword(e.target.value)}
+                    className="w-full px-3.5 py-2.5 pr-10 rounded-lg text-sm bg-white border border-slate-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 shadow-sm"
+                    placeholder="••••••••••••"
+                    disabled={resetBusy}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowResetNewPassword(!showResetNewPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    tabIndex={-1}
+                  >
+                    {showResetNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="reset-confirm-password"
+                  className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5"
+                >
+                  Confirm New Password *
+                </label>
+                <div className="relative">
+                  <input
+                    id="reset-confirm-password"
+                    type={showResetConfirmPassword ? "text" : "password"}
+                    required
+                    value={resetConfirmPassword}
+                    onChange={(e) => setResetConfirmPassword(e.target.value)}
+                    className="w-full px-3.5 py-2.5 pr-10 rounded-lg text-sm bg-white border border-slate-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 shadow-sm"
+                    placeholder="••••••••••••"
+                    disabled={resetBusy}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowResetConfirmPassword(!showResetConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    tabIndex={-1}
+                  >
+                    {showResetConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-500">
+                Min 8 characters &bull; uppercase &bull; lowercase &bull; number &bull; special character
+              </p>
+
+              <div className="flex items-center gap-3 pt-2">
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="lg"
+                  isLoading={resetBusy}
+                  disabled={resetBusy}
+                  className="flex-1 justify-center shadow-md shadow-brand-500/20"
+                >
+                  Verify OTP &amp; Update Password
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={handleRequestResetOtp}
+                  disabled={resetBusy}
+                  size="md"
+                >
+                  Resend OTP
+                </Button>
+              </div>
+
+              <div className="pt-3 text-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab("user");
+                    setResetError("");
+                  }}
+                  className="text-xs text-slate-500 hover:text-slate-800 font-medium"
+                >
+                  ← Back to Login
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
       )}
 
       {/* Return to website link */}

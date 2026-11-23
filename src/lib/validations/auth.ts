@@ -5,6 +5,13 @@
 import { z } from "zod";
 import { passwordSchema, usernameSchema } from "@/lib/auth/password";
 
+export const phoneSchema = z
+  .string()
+  .min(7, "Phone number must be at least 7 digits")
+  .max(15, "Phone number must not exceed 15 digits")
+  .regex(/^\+?[0-9\s\-().]+$/, "Invalid phone number format")
+  .optional();
+
 export const registerSchema = z
   .object({
     fullName: z
@@ -14,6 +21,7 @@ export const registerSchema = z
       .regex(/^[a-zA-Z\s'.-]+$/, "Full name contains invalid characters"),
     username: usernameSchema,
     email: z.string().email("Please enter a valid email address"),
+    phone: phoneSchema,
     password: passwordSchema,
     confirmPassword: z.string(),
     agreeToTerms: z.boolean().refine((v) => v === true, {
@@ -61,9 +69,26 @@ export const updateUserStatusSchema = z.object({
   reason: z.string().max(500).optional(),
 });
 
+export const requestOtpSchema = z.object({
+  phone: z.string().min(7).max(15).regex(/^\+?[0-9\s\-().]+$/, "Invalid phone number"),
+});
+
+export const changePasswordWithOtpSchema = z
+  .object({
+    otp: z.string().length(6, "OTP must be exactly 6 digits").regex(/^\d{6}$/, "OTP must be numeric"),
+    newPassword: passwordSchema,
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type AdminLoginInput = z.infer<typeof adminLoginSchema>;
 export type UpdateUserStatusInput = z.infer<typeof updateUserStatusSchema>;
+export type RequestOtpInput = z.infer<typeof requestOtpSchema>;
+export type ChangePasswordWithOtpInput = z.infer<typeof changePasswordWithOtpSchema>;

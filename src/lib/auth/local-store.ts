@@ -15,6 +15,7 @@ export interface LocalUserRecord {
   createdAt: string;
   updatedAt: string;
   lastLoginAt?: string | null;
+  phone?: string | null;
 }
 
 const DATA_DIR = path.join(process.cwd(), ".data");

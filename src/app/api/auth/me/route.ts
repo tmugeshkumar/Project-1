@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserSessionFromRequest, getAdminSessionFromRequest } from "@/lib/auth/session";
 import { getPrismaClient } from "@/lib/db";
+import { getLocalUserById } from "@/lib/auth/local-store";
 
 export const dynamic = "force-dynamic";
 
@@ -34,16 +35,19 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const prisma = getPrismaClient();
   if (!prisma) {
+    // Local store: get full record to include phone
+    const record = getLocalUserById(userSession!.userId);
     return NextResponse.json({
       success: true,
       data: {
         id: userSession!.userId,
-        fullName: userSession!.username,
+        fullName: record?.fullName ?? userSession!.username,
         username: userSession!.username,
         email: userSession!.email,
         role: userSession!.role,
-        accountStatus: "ACTIVE",
-        emailVerified: true,
+        accountStatus: record?.accountStatus ?? "ACTIVE",
+        emailVerified: record?.emailVerified ?? true,
+        phone: record?.phone ?? null,
       },
     });
   }

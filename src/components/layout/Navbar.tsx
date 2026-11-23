@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { siteConfig } from "@/config/site";
 import { Button } from "@/components/ui/Button";
-import { Menu, X, ArrowUpRight, Code2, LogIn, User as UserIcon, ShieldCheck, LogOut } from "lucide-react";
+import { Menu, X, ArrowUpRight, Code2, LogIn, User as UserIcon, ShieldCheck, LogOut, KeyRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AuthState {
@@ -140,6 +140,14 @@ export const Navbar: React.FC = () => {
                   <UserIcon className="w-3.5 h-3.5 text-slate-500" />
                   <span>@{user.username}</span>
                 </div>
+                <Link
+                  href="/profile"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-slate-600 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors border border-slate-200 hover:border-brand-200"
+                  title="My Profile"
+                >
+                  <KeyRound className="w-3.5 h-3.5" />
+                  <span>Profile</span>
+                </Link>
                 <button
                   type="button"
                   onClick={handleLogout}

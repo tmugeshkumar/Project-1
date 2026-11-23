@@ -34,7 +34,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const { fullName, username, email, password, honeypot } = parsed.data;
+  const { fullName, username, email, phone, password, honeypot } = parsed.data;
 
   // 3. Honeypot check — silently succeed
   if (honeypot && honeypot.length > 0) {
@@ -78,6 +78,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         emailVerified: true,
         emailVerifiedAt: new Date().toISOString(),
         accountStatus: "ACTIVE",
+        phone: phone ?? null,
       });
 
       return NextResponse.json(

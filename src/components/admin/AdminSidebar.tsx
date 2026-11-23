@@ -12,6 +12,7 @@ import {
   Menu,
   X,
   ShieldCheck,
+  UserCog,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +26,7 @@ export default function AdminSidebar() {
     { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
     { label: "Registered Users", href: "/admin/users", icon: Users },
     { label: "Audit Logs", href: "/admin/audit-logs", icon: ShieldAlert },
+    { label: "My Profile", href: "/admin/profile", icon: UserCog },
   ];
 
   const handleLogout = async () => {

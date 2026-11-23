@@ -62,6 +62,7 @@ export default function SignupPage() {
   const [fullName, setFullName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [agreed, setAgreed] = useState(false);
@@ -132,6 +133,7 @@ export default function SignupPage() {
           fullName: fullName.trim(),
           username: username.trim(),
           email: email.trim(),
+          phone: phone.trim() || undefined,
           password,
           confirmPassword,
           agreeToTerms: agreed,
@@ -271,6 +273,32 @@ export default function SignupPage() {
             placeholder="you@example.com"
             disabled={isLoading}
           />
+        </div>
+
+        {/* Phone Number */}
+        <div>
+          <label
+            htmlFor="phone"
+            className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5"
+          >
+            Phone Number <span className="text-slate-400 font-normal normal-case">(optional — used for OTP verification)</span>
+          </label>
+          <input
+            id="phone"
+            type="tel"
+            autoComplete="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            className={cn(
+              "w-full px-3.5 py-2.5 rounded-lg text-sm bg-white border border-slate-300",
+              "text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors shadow-sm"
+            )}
+            placeholder="+91 98765 43210"
+            disabled={isLoading}
+          />
+          <p className="mt-1 text-xs text-slate-500">
+            Required to use "Change Password via OTP" after sign-up
+          </p>
         </div>
 
         {/* Password */}
